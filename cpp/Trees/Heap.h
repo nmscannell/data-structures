@@ -1,281 +1,129 @@
-#ifndef REDBLACK_H
-#define REDBLACK_H
+#ifndef HEAP_H
+#define HEAP_H
 
 #include <queue>
 #include <stdexcept>
 #include <iostream>
 
-enum class Color {RED, BLACK};
-
 template<class T>
-class RedBlack {
+class Heap {
   class Node {
     T data;
-    Color c; 
     Node *left, *right, *parent;
-    friend class RedBlack;
+    friend class Heap;
 
     public:
-      Node(const T &d, Node *l=nullptr, Node *r=nullptr, Node *p=nullptr) : data(d), c(Color::RED), left(l), right(r), parent(p) {}
+      Node(const T &d, Node *l=nullptr, Node *r=nullptr, Node *p=nullptr) : data(d), left(l), right(r), parent(p) {}
       ~Node() {
         left = right = parent = nullptr;
       }
     };
 
   Node *root;
+  Node *last;
   int manyItems;
+  bool max;
 
-  Node* getGP(Node *n) {
-    return n->parent == nullptr ? nullptr : n->parent->parent;
+  void bubbleUp(Node *n) {
+    if(n == nullptr || n->parent == nullptr) return;
+    std::cout << "bubbling up" << std::endl;
+    if(max && n->parent->data >= n->data) return;
+    if(!max && n->parent->data <= n->data) return;
+    T d = n->data;
+    n->data = n->parent->data;
+    n->parent->data = d;
+    bubbleUp(n->parent);
   }
 
-  Node* getSib(Node *n) {
-    if(n->parent == nullptr) return nullptr;
-    return n == n->parent->left ? n->parent->right : n->parent->left;
-  }
-
-  Node* getUncle(Node *n) {
-    return n->parent == nullptr ? nullptr : getSib(n->parent);
+  void bubbleDown(Node *n) {
+    if(n == nullptr || n->left == nullptr && n->right == nullptr) return;
+    std::cout << "bubbling down" << std::endl;
+    Node *m = n->right == nullptr? n->left : nullptr;
+    if(m == nullptr) {
+      if(max) m = n->left->data > n->right->data ? n->left : n->right;
+      else m = n->left->data < n->right->data ? n->left : n->right;
+    }
+    if(max && n->data < m->data || !max && n->data > m->data) {
+      T d = n->data;
+      n->data = m->data;
+      m->data = d;
+      bubbleDown(m);
+    } 
   }
 
   // Helper function to add a node to a BST
-  void addHelper(Node *r, Node *n) {
-    if(r == nullptr) return;
-    if(n->data < r->data) {
-      if(r->left != nullptr) {
-	addHelper(r->left, n);
-      } else {
-	r->left = n;
-	n->parent = r;
-      }
+  void addHelper(Node *n) {
+    if(last == nullptr){
+       last = root = n;
+    } else if(last->parent == nullptr) {
+      n->parent = last;
+      last->left = n;
+      last = n;
+    } else if(last == last->parent->left) {
+      n->parent = last->parent;
+      last->parent->right = n;
+      last = n;
     } else {
-      if(r->right != nullptr) {
-	addHelper(r->right, n);
-      } else {
-	r->right = n;
-	n->parent = r;
-      }
-    }
-  }
-
-  // Helper function to fix violations that occur after adding
-  void addFixViolation(Node *n) {
-    // if n is the root, we just need to make it black
-    if(n->parent == nullptr) {
-      n->c = Color::BLACK;
+      Node *l = findParent();
+      l->left = n;
+      n->parent = l;
+      last = n;
     } 
-    // otherwise, new node is red; if parent is red, there is a violation
-    else if(n->parent->c == Color::RED) {
-      Node *u = getUncle(n);
-      Node *g = getGP(n);
-      Node *p = n->parent;
-      // if uncle is also red, we make parent and uncle black and grandparent red
-      // then fix violations starting at grandparent
-      if(u != nullptr && u->c == Color::RED) {
-        p->c = Color::BLACK;
-        u->c = Color::BLACK;
-        g->c = Color::RED;
-        addFixViolation(g);
-      } else {
-	// if uncle is black (but parent and n are red), we need to do rotations
-	// if n is a right child and p is a left child, rotate left at p
-	// then move down to n's left to fix violation
-	if(n == p->right && p == g->left) {
-	  rotateLeft(p);
-          n = n->left;
-        } 
-	// if n is a left child and p is a right child, rotate right at p
-	// then move down to n's right to fix violation
-	else if(n == p->left && p == g->right) {
-          rotateRight(p);
-          n = n->right;
-        }
-        p = n->parent;
-	g = getGP(n);
-	// if n is a left child, rotate right at grandparent; otherwise, mirror
-        if(n == p->left) {
-	  rotateRight(g);
-        } else {
-          rotateLeft(g);
-        }
-        // parent must be black and grandparent red
-        p->c = Color::BLACK;
-        g->c = Color::RED;
-      }	
-    } 
+    ++manyItems;
+    if(root != n) bubbleUp(n);
   }
 
-  // Helper function to rotate left at n when fixing violations
-  // n's right child becomes its parent and n becomes a left child
-  void rotateLeft(Node* n) {
-    Node *r = n->right;
-    Node *rL = r->left;
-    Node *p = n->parent;
-    r->left = n;
-    n->parent = r;
-    n->right = rL;
-    if(rL != nullptr) rL->parent = n;
-    if(p != nullptr) {
-      if(n == p->left) p->left = r;
-      else p->right = r;
-    }
-    r->parent = p;
-  }
-
-  //Helper function to rotate right at n when fixing violations
-  // n's left child becomes its parent and n becomes a right child
-  void rotateRight(Node *n) {
-    Node *l = n->left;
-    Node *lR = l->right;
-    Node *p = n->parent;
-    l->right = n;
-    n->parent = l;
-    n->left = lR;
-    if(lR != nullptr) lR->parent = n;
-    if(p != nullptr) {
-      if(n == p->left) p->left = l;
-      else p->right = l;
-    }
-    l->parent = p;
-  } 
-  
-  // Helper function to remove a node
-  Node* removeHelper(Node *n, const T &d) {
-    if(n == nullptr) return nullptr;
-    if(d < n->data) {
-      n->left = removeHelper(n->left, d);
-    } else if(d > n->data) {
-      n->right = removeHelper(n->right, d);
+  void removeHelper() {
+    root->data = last->data;
+    if(root == last) {
+      delete root;
+      delete last;
+      root = nullptr;
+      last = nullptr;
+    } else if(last == last->parent->left) {
+      last->parent->left = nullptr;
+      Node *l = findNewLast();
+      delete last;
+      last = l;
+      //find last
     } else {
-      // if the node being removed has only a right child or no children
-      // replace node with right child
-      if(n->left == nullptr) {
-        Node *rc = n->right;
-	if(rc != nullptr) {
-	  rc->parent = n->parent;
-	  if(n == n->parent->left) {
-	    n->parent->left = rc;
-	  } else {
-	    n->parent->right = rc;
-	  }
-	  // need to make sure red-black properties hold or are fixed
-	  if(n->c == Color::BLACK) {
-	    if(rc->c == Color::RED) {
-	      rc->c = Color::BLACK;
-	    } else {
-	      fixViolation(rc);
-	    }
-	  }
-	}
-	
-	delete n;
-	n = nullptr;
-	return rc;
-      } 
-      // if the node being removed has only a left child
-      // replace node with left child
-      else if(n->right == nullptr) {
-	Node *lc = n->left;
-	std::cout << d << " has one left child" << std::endl;
-	lc->parent = n->parent;
-	if(n == n->parent->left) {
-	  n->parent->left = lc;
-	} else {
-          n->parent->right = lc;
-	}
-	// need to make sure red-black properties hold or are fixed
-	if(n->c == Color::BLACK) {
-          if(lc->c == Color::RED) {
-	    lc->c = Color::BLACK;
-	  } else {
-	    fixViolation(lc);
-	  }
-	}
-	
-	delete n;
-	n = nullptr;
-	return lc;
-      } 
-      // if the node being removed has two children, replace the node 
-      // with its successor, then delete successor
-      else {
-	Node *tmp = n->right;
-	while(tmp->left != nullptr) {
-	  tmp = tmp->left;
-	}
-	n->data = tmp->data;
-	n->right = removeHelper(n->right, tmp->data);
-      }
+      Node *p = last->parent;
+      p->right = nullptr;
+      delete last;
+      last = p->left;
     }
-    return n;
+    if(root != nullptr) bubbleDown(root);
+    --manyItems;
   }
 
-  // Helper function to fix a violation after removal
-  void fixViolation(Node *n) {
-    // if n is the root, there is nothing to fix
-    if(n->parent == nullptr) return;
-    Node *s = getSib(n);
-    Node *p = n->parent;
-    // if s is red, we need to make it black and the parent red, then rotate on parent
-    if(s->c == Color::RED) {
-      std::cout << "Case 1: sibling is red" << std::endl;
-      p->c = Color::RED;
-      s->c = Color::BLACK;
-      if(n == p->left) {
-	rotateLeft(p);
-      } else {
-	rotateRight(p);
-      }
+  Node* findNewLast() {
+    Node *l = last;
+    while(l->parent != nullptr && l == l->parent->left) {
+      l = l->parent;
     }
-    s = getSib(n);
-    
-    // Case 2: Parent, sibling, and sibling's children are all black
-    // Simply make sibling red; if parent is not root, fix violations starting at parent
-    if(p->c == Color::BLACK && s->c == Color::BLACK && 
-        s->left != nullptr && s->left->c == Color::BLACK &&
-        s->right != nullptr && s->right->c == Color::BLACK) {
-      s->c = Color::RED;
-      // if the parent is the root, we have nothing else to do
-      if(p->parent == nullptr) return;
-      fixViolation(p);
-    } 
-    // Case 3: Parent red, sibling and children are black
-    // Swap sibling and parent colors
-    else if(p->c == Color::RED && s->c == Color::BLACK && s->left != nullptr
-	&& s->left->c == Color::BLACK && s->right != nullptr && s->right->c == Color::BLACK) {
-      s->c = Color::RED;
-      p->c = Color::BLACK;
-    } 
-    // Case 4: N is a left child, sibling's right is black and left is red
-    // Make sibling red and left black, then rotate right on sibling
-    else if(n == p->left && s->right != nullptr && s->right->c == Color::BLACK 
-	&& s->left != nullptr && s->left->c == Color::RED) {
-      s->c = Color::RED;
-      s->left->c = Color::BLACK;
-      rotateRight(s);
-    } 
-    // Case 5: Mirror of Case 4
-    else if(n == p->right && s->right != nullptr && s->right->c == Color::RED
-	&& s->left != nullptr && s->left->c == Color::BLACK) {
-      s->c = Color::RED;
-      s->right->c = Color::BLACK;
-      rotateLeft(s);
-    } 
-    //Case 6: Sibling is black, p is arbitrary; N is a left child and sib's right is red
-    // Swap sib and p colors, make sib's right black, rotate left at p
-    // Or N is right child and sib's left is red
-    // Swap sib and p colors, make sib's left black, rotate right at p
-    s = getSib(n);
-    p = n->parent;
-    s->c = p->c;
-    p->c = Color::BLACK;
-    if(n == p->left) {
-      s->right->c = Color::BLACK;
-      rotateLeft(p);
-    } else {
-      s->left->c = Color::BLACK;
-      rotateRight(p);
-    } 
+    if(l->parent != nullptr) {
+      l = l->parent;
+      l = l->left;
+    }
+    while(l->right != nullptr) {
+      l = l->right;
+    }
+    return l;
+  }
+
+  Node* findParent() {
+    Node *l = last;
+    while(l->parent != nullptr && l == l->parent->right){
+      l = l->parent;
+    }
+    if(l->parent != nullptr) {
+      l = l->parent;
+      l = l->right;
+    }
+    while(l->left != nullptr) {
+      l = l->left;
+    }
+    return l;
   }
   
   // Helper function to print nodes in-order
@@ -283,7 +131,7 @@ class RedBlack {
     if(n == nullptr) return;
 
     inOrder(n->left);
-    std::cout << n->data << " " << static_cast<int>(n->c) << std::endl;
+    std::cout << n->data << std::endl;
     inOrder(n->right);
   }
   
@@ -296,7 +144,7 @@ class RedBlack {
 
     while(!q.empty()) {
       Node *tmp = q.front();
-      std::cout << tmp->data << " " << static_cast<int>(tmp->c) << std::endl;
+      std::cout << tmp->data << std::endl;
       q.pop();
       if(tmp->left != nullptr) q.push(tmp->left);
       if(tmp->right != nullptr) q.push(tmp->right);
@@ -304,10 +152,12 @@ class RedBlack {
   }
 
   public:
-    RedBlack() : root(nullptr), manyItems(0) {}
+    Heap(bool m) : root(nullptr), last(nullptr), manyItems(0), max(m) {}
     
-    ~RedBlack() {
+    ~Heap() {
       delete root;
+      delete last;
+      last = nullptr;
       root = nullptr;
     }
 
@@ -315,46 +165,28 @@ class RedBlack {
       return manyItems;
     }
 
-    bool add(const T &d) {
-      if(contains(d)) return false;
+    T getMax() {
+      if(!max) throw std::runtime_error("this is a min heap--max() not supported.");
+      return root == nullptr ? nullptr : root->data;
+    }
+
+    T getMin() {
+      if(max) throw std::runtime_error("this is a max head--min() not supported.");
+      return root == nullptr ? nullptr : root->data;
+    }
+
+    void insert(const T &d) {
       Node *n = new Node(d);
-      if(root == nullptr) {
-	root = n;
-	root->c = Color::BLACK;
-      } else {
-	addHelper(root, n);
-	addFixViolation(n);
-	// need to find new root
-	root = n;
-	while(root->parent != nullptr) {
-          root = root->parent;
-	}
-      }
-      ++manyItems;
-      return true;
+      addHelper(n);
     }
 
-    bool remove(const T &d) {
-      if(!contains(d)) return false;
-      root = removeHelper(root, d);
-      // need to find new root
-      while(root->parent != nullptr) {
-	root = root->parent;
-      }
-      --manyItems;
-      return true;
+    T remove() {
+      if(root == nullptr) throw std::runtime_error("no elements in heap");
+      T result = root->data;
+      removeHelper();
+      return result;
     }
 
-    bool contains(const T &d) {
-      Node *n = root;
-      while(n != nullptr) {
-	if(d < n->data) n = n->left;
-	else if(d == n->data) return true;
-	else n = n->right;
-      }
-      return false;
-    }
-    
     void display() {
       std::cout << "Level order: " << std::endl;
       levelOrder(root);
