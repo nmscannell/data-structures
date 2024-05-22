@@ -108,6 +108,7 @@ class SinglyLinkedList {
     }
 
     void reverse() {
+      if (isEmpty() || head->next == nullptr) return;
       Node *lag, *cur, *next;
       lag = head;
       cur = head->next;
@@ -119,6 +120,7 @@ class SinglyLinkedList {
       }
       cur->next = lag;
       tail = head;
+      tail->next = nullptr;
       head = cur;
       lag = cur = next = nullptr;
     }
@@ -132,10 +134,14 @@ class SinglyLinkedList {
       return n != nullptr;
     }
 
+    void display(Node* n) {
+        std::cout << "n: " << n << "; n->data: " << n->data << "; n->next: " << n->next << std::endl;
+    }
+
     void display() {
       Node *n = head;
       while(n != nullptr) {
-        std::cout << n->data << std::endl;
+	display(n);
 	n = n->next;
       }
       n = nullptr;
